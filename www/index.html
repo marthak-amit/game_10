@@ -436,9 +436,9 @@ function goHome(){
 function refreshHome(){
   $("#hmCoins").textContent="🪙 "+S.coins;
   $("#bPlay").textContent="▶ PLAY — Level "+S.level;
-  const d=S.daily===today();$("#bDaily").textContent=d?"✔ Daily done — back tomorrow":"🔥 Daily Challenge · +100🪙";
+  const d=S.daily===today();$("#bDaily").textContent=d?"✔ Daily done — back tomorrow":"🔥 Daily Challenge";
   $("#best").textContent="Best chain: x"+S.best+"  ·  ⭐ "+Object.values(S.stars).reduce((a,b)=>a+b,0);
-  $("#bGift").textContent=giftReady()?"🎁 Gift ●":"🎁 Daily Gift";
+  $("#bGift").textContent=giftReady()?"🎁 Gift ●":"🎁 Gift";
 }
 
 /* ---------- modal ---------- */

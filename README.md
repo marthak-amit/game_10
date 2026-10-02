@@ -3,6 +3,17 @@
 One-tap chain-reaction puzzle for Android (Capacitor + HTML5 canvas). Tap once, drop a nova, every orb it touches
 explodes into a new nova — chain them all.
 
+## Screenshots
+| | | | |
+|---|---|---|---|
+| ![](docs/screenshots/02-home.png) | ![](docs/screenshots/04-chain-reaction.png) | ![](docs/screenshots/05-level-clear.png) | ![](docs/screenshots/06-mega-level.png) |
+| Home | Chain reaction | Level clear | Mega level |
+
+| | | | |
+|---|---|---|---|
+| ![](docs/screenshots/01-daily-gift.png) | ![](docs/screenshots/07-shop.png) | ![](docs/screenshots/08-level-map.png) | ![](docs/screenshots/03-level-start.png) |
+| Daily gift | Shop | Level map | Level start |
+
 ## Features
 - Endless levels; each one is **played by a solver at load time**, so every level is winnable and its goal is a fraction
   of the best achievable result (difficulty ramps by raising that fraction + speed + armored orbs).
@@ -13,7 +24,7 @@ explodes into a new nova — chain them all.
 ## Project layout
 - `www/` – the game (`index.html`, `config.js`). `www/native.js` is built from `src/native.js`.
 - `android/` – Capacitor Android project (AdMob app id lives in `AndroidManifest.xml`).
-- `.github/workflows/android.yml` – builds a debug APK on every push (Actions → artifact `chain-nova-debug-apk`).
+- `.github/workflows/android.yml` – builds a debug APK on every push (Actions → artifact `chain-nova-debug-apk`, also published under the repo's **Releases**).
 
 ## Run / build
 ```
