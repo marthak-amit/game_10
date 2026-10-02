@@ -1,0 +1,23 @@
+{
+  "name": "chain-nova",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chain Nova - one-tap chain reaction puzzle",
+  "scripts": {
+    "build:native": "esbuild src/native.js --bundle --minify --format=iife --outfile=www/native.js",
+    "serve": "python3 -m http.server 8000 --directory www",
+    "sync": "npm run build:native && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
+    "@capacitor-community/admob": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "esbuild": "^0.25.0"
+  }
+}

@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#0b0620">
 <link rel="manifest" href="manifest.json">
 <title>Chain Nova</title>
+<script src="config.js"></script>
+<script src="native.js" onerror="void 0"></script>
 <style>
 :root{--bg:#0b0620;--panel:#1a1140;--panel2:#2a1b66;--ink:#f4f0ff;--dim:#9d92d6;--gold:#ffc94a;--pink:#ff4fa3;--cyan:#41e6ff;--green:#5dffb0}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:manipulation}
@@ -60,6 +62,11 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .day{background:#ffffff10;border-radius:12px;padding:8px 2px;font-size:12px;font-weight:800}
 .day.cur{background:var(--gold);color:#3a2300}.day.done{opacity:.4}
 .sec{font-size:12px;letter-spacing:2px;color:var(--cyan);font-weight:900;text-align:left;margin:14px 0 0}
+#hint{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 92px);transform:translateX(-50%);background:#000b;border:2px solid var(--gold);padding:8px 16px;border-radius:14px;font-weight:800;font-size:14px;z-index:4;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:12px 0}
+.lv{background:#ffffff14;border-radius:12px;padding:8px 0;font-weight:900;font-size:16px;position:relative}
+.lv small{display:block;font-size:9px;letter-spacing:1px;color:var(--gold);min-height:12px}
+.lv.cur{background:var(--pink)}.lv.lock{opacity:.3}.lv.mega{border:2px solid var(--gold)}
 #toast{position:fixed;left:50%;top:20%;transform:translateX(-50%);background:#000c;padding:10px 18px;border-radius:14px;font-weight:800;z-index:9;pointer-events:none;opacity:0;transition:opacity .25s}
 #ad{background:#000;z-index:10;align-items:center;justify-content:center;font-weight:800;text-align:center}
 </style>
@@ -88,14 +95,14 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
   <div class="stack">
     <button class="btn gold big" id="bPlay">▶ PLAY — Level 1</button>
     <button class="btn cyan" id="bDaily">🔥 Daily Challenge</button>
-    <div class="row"><button class="btn ghost" id="bShop">🛒 Shop</button><button class="btn ghost" id="bGift">🎁 Daily Gift</button></div>
+    <div class="row"><button class="btn ghost" id="bShop">🛒 Shop</button><button class="btn ghost" id="bLevels">🗺 Levels</button><button class="btn ghost" id="bGift">🎁 Gift</button></div>
     <div class="sub" id="best"></div>
   </div>
 </div>
 
 <div id="modal" class="layer hidden"></div>
 <div id="ad" class="layer hidden"><div>📺 Ad playing…<br><small style="color:#888">(mock — replace with real AdMob)</small></div></div>
-<div id="toast"></div>
+<div id="toast"></div><div id="hint"></div>
 
 <script>
 "use strict";
@@ -111,20 +118,22 @@ const rnd=(a,b)=>a+Math.random()*(b-a);
 /* ---------- save ---------- */
 const SKEY="chainnova.v1";
 const defSave={coins:200,level:1,stars:{},inv:{tap:1,mega:1,slow:1},up:{radius:0,hold:0,coin:0},
-  gift:{last:"",streak:0},daily:"",noAds:false,sound:true,haptic:true,played:0,best:0,starter:false};
+  gift:{last:"",streak:0},daily:"",noAds:false,sound:true,haptic:true,played:0,best:0,starter:false,music:true,seen:{},finished:0,lastInter:0};
 let S=(()=>{try{return Object.assign(structuredClone(defSave),JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){return structuredClone(defSave)}})();
 const save=()=>{try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}};
 const today=()=>new Date().toISOString().slice(0,10);
 
 /* ---------- monetization hooks (swap bodies for AdMob / Play Billing) ---------- */
+const NC=window.NOVA_CONFIG||{};
 const Ads={
-  rewarded(cb){ // cb(true) if user earned reward
-    showAd(()=>cb(true));
+  rewarded(cb){ // cb(true) only when the player earned the reward
+    if(window.NativeAds){NativeAds.rewarded((ok,why)=>{if(!ok)toast(why==="skipped"?"Watch the full ad to get the reward":"Ad not ready - try again in a moment");cb(ok)})}
+    else showAd(()=>cb(true));
   },
-  interstitial(cb){ if(S.noAds) return cb(); showAd(cb); },
+  interstitial(cb){ if(S.noAds)return cb(); S.lastInter=Date.now();save(); window.NativeAds?NativeAds.interstitial(cb):showAd(cb); },
 };
 const IAP={
-  buy(id,cb){ // TODO: Google Play Billing. Mock grants immediately.
+  buy(id,cb){ // mock until Play Billing products exist (NC.IAP_MOCK)
     cb(true);
   }
 };
@@ -141,10 +150,19 @@ function tone(f,dur,type="triangle",vol=.18,slide=0){
   g.gain.setValueAtTime(vol,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);
   o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+dur);
 }
-const pop=i=>tone(261.6*Math.pow(2,PENTA[i%5]/12+Math.min(3,Math.floor(i/5))),.35,"triangle",.16);
+const pop=i=>SIM?0:tone(261.6*Math.pow(2,PENTA[i%5]/12+Math.min(3,Math.floor(i/5))),.35,"triangle",.16);
 const sfx={tap:()=>tone(180,.25,"sine",.3,.4),win:()=>[0,4,7,12].forEach((n,i)=>setTimeout(()=>tone(392*Math.pow(2,n/12),.4,"triangle",.2),i*110)),
   lose:()=>tone(220,.5,"sawtooth",.15,.4),coin:()=>tone(1200,.12,"square",.08),ui:()=>tone(600,.08,"square",.06)};
-const buzz=ms=>{if(S.haptic&&navigator.vibrate)try{navigator.vibrate(ms)}catch(e){}};
+let musT=0,musI=0;
+const CH=[[57,60,64,69],[53,57,60,65],[48,52,55,60],[55,59,62,67]];
+function music(dt){
+  if(!S.music||!S.sound||!AC||AC.state!=="running"||document.hidden)return;
+  musT-=dt;if(musT>0)return;musT=.38;
+  const ch=CH[Math.floor(musI/8)%4],n=ch[[0,1,2,3,2,1,3,2][musI%8]];musI++;
+  tone(440*Math.pow(2,(n-69)/12),1.1,"sine",.035);
+  if(musI%8===1)tone(440*Math.pow(2,(ch[0]-81)/12),2.6,"sine",.05);
+}
+const buzz=ms=>{if(!SIM&&S.haptic&&navigator.vibrate)try{navigator.vibrate(ms)}catch(e){}};
 
 /* ---------- level generation ---------- */
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -157,9 +175,10 @@ const TYPES={
 };
 function genLevel(n,seed,daily){
   const R=mulberry(seed||n*7919+13);
-  const count=Math.min(28+Math.floor(n*1.2),84);
-  const spd=22+Math.min(n,60)*.7;
-  const w={normal:10,nova:n>=3?2:0,armor:n>=6?Math.min(1+n/6,5):0,split:n>=10?2:0,freeze:n>=14?1.2:0};
+  const mega=!daily&&n>=10&&n%10===0;
+  const count=Math.min(26+Math.floor(n*.5),44)+(mega?8:0);
+  const spd=24+Math.min(n,80)*.8;
+  const w={normal:10,nova:n>=3?2:0,armor:n>=6?Math.min(1+n/6,5)+(mega?3:0):0,split:n>=10?2:0,freeze:n>=14?1.2:0};
   const tot=Object.values(w).reduce((a,b)=>a+b,0);
   const orbs=[];
   for(let i=0;i<count;i++){
@@ -168,7 +187,42 @@ function genLevel(n,seed,daily){
     orbs.push({t,x:R(),y:R(),vx:Math.cos(a)*v,vy:Math.sin(a)*v,hue:Math.floor(R()*360)});
   }
   const frac=.2+.42*(1-Math.exp(-n/30));
-  return{n,orbs,goal:Math.max(2,Math.ceil(count*frac)),taps:(n>=5&&n%7===0)?2:1,daily:!!daily};
+  return{n,orbs,goal:Math.max(2,Math.ceil(count*(frac+(mega?.04:0)))),taps:mega?2:(n>=5&&n%7===0)?2:1,daily:!!daily,mega};
+}
+/* ---- solver: plays each level headlessly so goals are always winnable and scaled to the achievable best ---- */
+let SIM=false;const LCACHE={};
+function snap(){return{o:orbs.map(o=>({...o})),c:cleared,tl:tapsLeft}}
+function rest(sn){orbs=sn.o.map(o=>({...o}));blasts=[];cleared=sn.c;tapsLeft=sn.tl;chain=0}
+function runBlasts(){for(let i=0;i<500&&blasts.length;i++)update(1/30)}
+function solve(L){
+  SIM=true;const pst=state,plv=lv,po=orbs,pb=blasts;state="sim";lv=L;
+  spawnOrbs(L);cleared=0;tapsLeft=L.taps;chainMax=0;
+  let cur=snap(),best=0;
+  const R0=60+(L.n<=3&&!L.daily?14:0);
+  for(let k=0;k<L.taps;k++){
+    let bestState=null,bc=-1;
+    for(const d of [0,.9,1.8]){
+      rest(cur);for(let i=0;i<d*30;i++)update(1/30);
+      const adv=snap(),pts=adv.o.map(o=>[o.x,o.y]);
+      for(const [x,y] of pts){
+        rest(adv);tapsLeft--;chain=0;addBlast(x,y,R0,0,0);runBlasts();
+        if(cleared>bc){bc=cleared;bestState=snap()}
+      }
+    }
+    if(!bestState)break;cur=bestState;best=bc;
+  }
+  state=pst;lv=plv;orbs=po;blasts=pb;SIM=false;return best;
+}
+function makeLevel(n,seed,daily){
+  const key=(daily?"d":"n")+n+"_"+(seed||0);if(LCACHE[key])return LCACHE[key];
+  let L,best=0;
+  for(let k=0;k<6;k++){
+    L=genLevel(n,(seed||n*7919+13)+k*104729,daily);L.seed=seed;best=solve(L);
+    if(best>=L.orbs.length*.3)break;
+  }
+  const f=.45+.45*(1-Math.exp(-n/40));
+  L.best=best;L.goal=Math.max(Math.ceil(L.orbs.length*.12),Math.min(best,Math.ceil(best*f)));
+  return LCACHE[key]=L;
 }
 const THEMES=[["#1a0b4d","#0b0620"],["#06323f","#030d1a"],["#401040","#12031a"],["#3d1f08","#150a03"],["#0a3d2a","#031510"],["#2a0b3d","#0a0320"]];
 
@@ -192,12 +246,22 @@ function startLevel(L){
   blasts=[];parts=[];texts=[];tapsLeft=L.taps;cleared=0;chain=0;chainMax=0;score=0;megaNext=false;slowT=0;freezeT=0;ended=false;usedContinue=false;earnedRun=0;
   spawnOrbs(L);state="play";
   $("#home").classList.add("hidden");$("#hud").classList.remove("hidden");$("#dockWrap").classList.remove("hidden");
-  $("#lvl").textContent=L.daily?"🔥 Daily Challenge":"Level "+L.n;
+  $("#lvl").textContent=L.daily?"🔥 Daily Challenge":(L.mega?"⚡ Mega Level ":"Level ")+L.n;
+  showHints(L);
   $("#bar b").style.left=(L.goal/L.orbs.length*100)+"%";
   hud();
 }
+const HINTS={nova:"🟡 Gold ring: HUGE blast",armor:"⚪ Armored: needs 2 hits",split:"✴ Splitter: bursts into 3 novas",freeze:"❄ Ice orb: freezes time"};
+function showHints(L){
+  const el=$("#hint");for(const t of ["nova","armor","split","freeze"]){
+    if(!S.seen[t]&&L.orbs.some(o=>o.t===t)){S.seen[t]=1;save();el.textContent="NEW  "+HINTS[t];el.style.opacity=1;clearTimeout(showHints.h);showHints.h=setTimeout(()=>el.style.opacity=0,3800);return}
+  }
+  el.style.opacity=0;
+}
 function startMenuBG(){state="menu";lv=null;const L=genLevel(12,Math.floor(Math.random()*1e6));spawnOrbs(L);blasts=[];theme=Math.floor(Math.random()*THEMES.length)}
 function hud(){
+  if(SIM)return;
+  $("#hCoins").textContent="🪙 "+S.coins;if(!lv)return;
   $("#pips").textContent="●".repeat(Math.max(0,tapsLeft))+(megaNext?" 💥":"");
   $("#bar i").style.width=Math.min(100,cleared/lv.orbs.length*100)+"%";
   $("#hCoins").textContent="🪙 "+S.coins;
@@ -217,13 +281,13 @@ function explode(o,byDepth){
   else addBlast(o.x,o.y,R,o.hue,byDepth+1);
   if(o.t==="freeze"){freezeT=2.5;say("❄ FREEZE",o.x,o.y-20,"#8ff")}
   burst(o.x,o.y,o.hue,14+Math.min(chain,20));
-  shake=Math.min(14,shake+1+chain*.12);
+  if(!SIM)shake=Math.min(14,shake+1+chain*.12);
   if(chain===5||chain===10||chain===15||chain===25||chain===40)say("CHAIN x"+chain+"!",W/2,AR.y+AR.h*.3,"#ffd24a",true);
   else if(chain>1&&chain%3===0)say("x"+chain,o.x,o.y-16,"#fff");
   hud();
 }
-function burst(x,y,hue,n){for(let i=0;i<n;i++){const a=rnd(0,6.283),v=rnd(40,190);parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,hue,s:rnd(1.5,3.5)})}}
-function say(t,x,y,c,big){texts.push({t,x,y,c,l:1,big})}
+function burst(x,y,hue,n){if(SIM)return;for(let i=0;i<n;i++){const a=rnd(0,6.283),v=rnd(40,190);parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,hue,s:rnd(1.5,3.5)})}}
+function say(t,x,y,c,big){if(SIM)return;texts.push({t,x,y,c,l:1,big})}
 
 /* ---------- input ---------- */
 cv.addEventListener("pointerdown",e=>{
@@ -320,25 +384,25 @@ function draw(){
 }
 let paused=false;
 let last=performance.now();
-(function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!document.hidden&&!paused)update(dt);draw();requestAnimationFrame(loop)})(last);
+(function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;music(dt);if(!document.hidden&&!paused)update(dt);draw();requestAnimationFrame(loop)})(last);
 
 /* ---------- flow ---------- */
 
 function toast(t){const e=$("#toast");e.textContent=t;e.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.opacity=0,1600)}
 function addCoins(n){S.coins+=n;save();hud();$("#hmCoins").textContent="🪙 "+S.coins}
-function starsFor(){const t=lv.orbs.length;if(cleared<lv.goal)return 0;let s=1;if(cleared>=lv.goal+(t-lv.goal)*.5)s=2;if(cleared>=t*.9&&s===2)s=3;return s}
+function starsFor(){if(cleared<lv.goal)return 0;let s=1;const b=Math.max(lv.best||0,lv.goal);if(cleared>=lv.goal+(b-lv.goal)*.5)s=2;if(cleared>=b&&s===2)s=3;return s}
 function finish(){
   if(state!=="play")return;
-  const won=cleared>=lv.goal,st=starsFor();
+  const won=cleared>=lv.goal,perfect=won&&cleared>=lv.orbs.length;let st=perfect?3:starsFor();
   S.played++;S.best=Math.max(S.best,chainMax);
   if(won){
     sfx.win();buzz([30,40,60]);
-    earnedRun=Math.round((cleared*2+st*10+(lv.daily?100:0))*(1+S.up.coin*.1));
+    earnedRun=Math.round((cleared*2+st*10+(lv.daily?100:0)+(perfect?50:0))*(1+S.up.coin*.1)*(lv.mega?2:1));
     if(lv.daily)S.daily=today();
     else{S.stars[lv.n]=Math.max(S.stars[lv.n]||0,st);if(lv.n===S.level)S.level++;}
     addCoins(earnedRun);
     for(let i=0;i<40;i++)setTimeout(()=>burst(rnd(30,370),rnd(150,400),rnd(0,360),10),i*40);
-    showModal(`<h2>${lv.daily?"Daily Cleared!":"Level "+lv.n+" Clear!"}</h2>
+    showModal(`<h2>${perfect?"✨ PERFECT! ✨":lv.daily?"Daily Cleared!":lv.mega?"Mega Level Clear!":"Level "+lv.n+" Clear!"}</h2>
       <div class="stars">${[1,2,3].map(i=>`<s class="${i<=st?"on":""}" style="animation-delay:${i*.2}s">⭐</s>`).join("")}</div>
       <p>Cleared <b style="color:#fff">${cleared}/${lv.orbs.length}</b> · Best chain <b style="color:#fff">x${chainMax}</b><br>Score <b style="color:#fff">${score}</b></p>
       <div style="font-size:26px;font-weight:900;color:var(--gold)">+${earnedRun} 🪙</div>
@@ -346,7 +410,7 @@ function finish(){
       <button class="btn gold" data-a="next">${lv.daily?"Home":"Next Level ▶"}</button>
       <button class="btn ghost" data-a="home">Home</button>`,{
       x2(b){Ads.rewarded(ok=>{if(ok){addCoins(earnedRun);sfx.coin();b.disabled=true;b.textContent="Doubled! ✔"}})},
-      next(){closeModal();afterRun(()=>lv.daily?goHome():startLevel(genLevel(S.level)))},
+      next(){closeModal();afterRun(()=>lv.daily?goHome():startLevel(makeLevel(S.level)))},
       home(){closeModal();afterRun(goHome)}});
   }else{
     sfx.lose();buzz(80);
@@ -356,12 +420,15 @@ function finish(){
       <button class="btn gold" data-a="retry">↻ Retry</button>
       <button class="btn ghost" data-a="home">Home</button>`,{
       cont(){Ads.rewarded(ok=>{if(ok){closeModal();usedContinue=true;ended=false;tapsLeft=1;hud()}})},
-      retry(){closeModal();afterRun(()=>startLevel(lv.daily?genLevel(lv.n,lv.seed,true):genLevel(lv.n)))},
+      retry(){closeModal();afterRun(()=>startLevel(lv.daily?makeLevel(lv.n,lv.seed,true):makeLevel(lv.n)))},
       home(){closeModal();goHome()}});
   }
 }
-let runsSinceAd=0;
-function afterRun(cb){runsSinceAd++;if(runsSinceAd>=3&&!S.noAds){runsSinceAd=0;Ads.interstitial(cb)}else cb()}
+function afterRun(cb){
+  S.finished++;save();
+  const ok=!S.noAds&&S.level>=(NC.INTERSTITIAL_MIN_LEVEL||4)&&S.finished%(NC.INTERSTITIAL_EVERY||3)===0&&(Date.now()-S.lastInter)>(NC.INTERSTITIAL_COOLDOWN_S||90)*1000;
+  ok?Ads.interstitial(cb):cb();
+}
 function goHome(){
   $("#hud").classList.add("hidden");$("#dockWrap").classList.add("hidden");$("#home").classList.remove("hidden");
   startMenuBG();refreshHome();
@@ -369,9 +436,9 @@ function goHome(){
 function refreshHome(){
   $("#hmCoins").textContent="🪙 "+S.coins;
   $("#bPlay").textContent="▶ PLAY — Level "+S.level;
-  const d=S.daily===today();$("#bDaily").textContent=d?"✔ Daily done — back tomorrow":"🔥 Daily Challenge (+100 🪙)";
+  const d=S.daily===today();$("#bDaily").textContent=d?"✔ Daily done — back tomorrow":"🔥 Daily Challenge · +100🪙";
   $("#best").textContent="Best chain: x"+S.best+"  ·  ⭐ "+Object.values(S.stars).reduce((a,b)=>a+b,0);
-  $("#bGift").textContent=giftReady()?"🎁 Gift ready!":"🎁 Daily Gift";
+  $("#bGift").textContent=giftReady()?"🎁 Gift ●":"🎁 Daily Gift";
 }
 
 /* ---------- modal ---------- */
@@ -424,13 +491,24 @@ function openShop(){
     noads(){IAP.buy("noads",ok=>{if(ok){S.noAds=true;save();openShop()}})},
     close(){closeModal();if(state==="play"){paused=false;hud()}}});
 }
+function openLevels(page){
+  const per=30,maxP=Math.floor((S.level-1)/per);page=page==null?maxP:clamp(page,0,maxP+1);
+  let h=`<h2>🗺 Levels</h2><div class="grid">`;
+  for(let i=page*per+1;i<=page*per+per;i++){
+    const st=S.stars[i]||0,lock=i>S.level,mega=i>=10&&i%10===0;
+    h+=`<button class="lv ${i===S.level?"cur":""} ${lock?"lock":""} ${mega?"mega":""}" ${lock?"":`data-a="go" data-n="${i}"`}>${lock?"🔒":i}<small>${st?"★".repeat(st):(i===S.level?"PLAY":"")}</small></button>`;
+  }
+  h+=`</div><div class="row"><button class="btn ghost" data-a="prev">◀</button><button class="btn ghost" data-a="next">▶</button></div><button class="btn ghost" data-a="close">Close</button>`;
+  showModal(h,{go(b,d){closeModal();startLevel(makeLevel(+d.n))},prev(){openLevels(page-1)},next(){openLevels(page+1)},close(){closeModal()}});
+}
 function openSettings(){
   showModal(`<h2>⚙️ Settings</h2>
    <div class="item"><div class="t">Sound</div><button class="btn cyan" data-a="snd">${S.sound?"ON":"OFF"}</button></div>
+   <div class="item"><div class="t">Music</div><button class="btn cyan" data-a="mus">${S.music?"ON":"OFF"}</button></div>
    <div class="item"><div class="t">Vibration</div><button class="btn cyan" data-a="hap">${S.haptic?"ON":"OFF"}</button></div>
    <div class="item"><div class="t">Reset progress</div><button class="btn ghost" data-a="reset">Reset</button></div>
    <button class="btn ghost" data-a="close">Close</button>`,{
-   snd(){S.sound=!S.sound;save();openSettings()},hap(){S.haptic=!S.haptic;save();openSettings()},
+   snd(){S.sound=!S.sound;save();openSettings()},mus(){S.music=!S.music;save();openSettings()},hap(){S.haptic=!S.haptic;save();openSettings()},
    reset(){if(confirm("Erase all progress?")){localStorage.removeItem(SKEY);location.reload()}},close(){closeModal()}});
 }
 
@@ -462,19 +540,38 @@ function usePw(k){
 $("#bPause").onclick=()=>{if(state!=="play"||ended)return;showModal(`<h2>Paused</h2>
   <button class="btn gold" data-a="res">Resume</button><button class="btn cyan" data-a="shop">🛒 Shop</button>
   <button class="btn ghost" data-a="re">↻ Restart</button><button class="btn ghost" data-a="home">Home</button>`,{
-  res(){closeModal()},shop(){openShop()},re(){closeModal();startLevel(lv.daily?genLevel(lv.n,lv.seed,true):genLevel(lv.n))},home(){closeModal();goHome()}})};
+  res(){closeModal()},shop(){openShop()},re(){closeModal();startLevel(lv.daily?makeLevel(lv.n,lv.seed,true):makeLevel(lv.n))},home(){closeModal();goHome()}})};
 $("#hCoins").onclick=()=>{if(state==="play"&&!modalOpen())openShop()};
 
 /* ---------- home buttons ---------- */
-$("#bPlay").onclick=()=>{ac();sfx.ui();startLevel(genLevel(S.level))};
+$("#bPlay").onclick=()=>{ac();sfx.ui();startLevel(makeLevel(S.level))};
 $("#bDaily").onclick=()=>{ac();if(S.daily===today())return toast("Come back tomorrow!");
-  const seed=parseInt(today().replace(/-/g,""));const L=genLevel(14+(seed%20),seed,true);L.seed=seed;startLevel(L)};
-$("#bShop").onclick=openShop;$("#bGift").onclick=openGift;$("#bSet").onclick=openSettings;
+  const seed=parseInt(today().replace(/-/g,""));startLevel(makeLevel(14+(seed%20),seed,true))};
+$("#bLevels").onclick=()=>openLevels();$("#bShop").onclick=openShop;$("#bGift").onclick=openGift;$("#bSet").onclick=openSettings;
 
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
-window.__game={get S(){return S},get state(){return state},get orbs(){return orbs},tap:(x,y)=>cv.dispatchEvent(new PointerEvent("pointerdown",{clientX:x*sc,clientY:y*sc}))};
+window.addEventListener("nova-back",()=>{
+  if(modalOpen()){const f=handlers.close||handlers.res||handlers.home;f&&f()}
+  else if(state==="play"&&!ended)$("#bPause").click();
+});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&state==="play"&&!ended&&!modalOpen())$("#bPause").click()});
+/* headless balance simulator: bot taps densest cluster (smart) or random (dumb) */
+function simulate(n,smart){
+  const L=makeLevel(n);startLevel(L);closeModal();
+  let tx,ty;
+  if(smart){let bc=-1;for(const a of orbs){const c=orbs.filter(q=>Math.hypot(q.x-a.x,q.y-a.y)<70).length;if(c>bc){bc=c;tx=a.x;ty=a.y}}}
+  else{tx=AR.x+Math.random()*AR.w;ty=AR.y+Math.random()*AR.h}
+  for(let k=0;k<L.taps;k++){
+    if(k>0){let bc=-1;for(const a of orbs){const c=orbs.filter(q=>Math.hypot(q.x-a.x,q.y-a.y)<70).length;if(c>bc){bc=c;tx=a.x;ty=a.y}}if(!smart){tx=AR.x+Math.random()*AR.w;ty=AR.y+Math.random()*AR.h}}
+    if(tapsLeft<=0)break;
+    tapsLeft--;chain=0;addBlast(tx,ty,baseR(),0,0);
+    for(let i=0;i<600&&blasts.length;i++)update(1/30);
+  }
+  const r={won:cleared>=L.goal,cleared,goal:L.goal,total:L.orbs.length};ended=true;state="menu";return r;
+}
+window.__game={get S(){return S},get state(){return state},get orbs(){return orbs},simulate,tap:(x,y)=>cv.dispatchEvent(new PointerEvent("pointerdown",{clientX:x*sc,clientY:y*sc}))};
 startMenuBG();refreshHome();
-if(giftReady()&&S.played===0)setTimeout(()=>{},0);
+if(giftReady())setTimeout(()=>{if(state==="menu"&&!modalOpen())openGift()},700);
 </script>
 </body>
 </html>

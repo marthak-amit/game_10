@@ -1,32 +1,43 @@
 # Chain Nova
 
-One-tap chain-reaction puzzle for mobile. Tap once to drop a nova; every orb it touches
-explodes into a new nova. Chain as many as you can. Single-file HTML5 (`index.html`), no build step.
+One-tap chain-reaction puzzle for Android (Capacitor + HTML5 canvas). Tap once, drop a nova, every orb it touches
+explodes into a new nova — chain them all.
 
-Run locally: `python3 -m http.server 8000` → open on a phone / Chrome devtools mobile mode.
+## Features
+- Endless levels; each one is **played by a solver at load time**, so every level is winnable and its goal is a fraction
+  of the best achievable result (difficulty ramps by raising that fraction + speed + armored orbs).
+- Orb types: Nova (huge blast), Armor (2 hits), Split (3 mini-novas), Freeze (stops time). Mega Level every 10 (2 taps, 2x coins).
+- 1–3 stars, Perfect clear bonus, Daily Challenge, 7-day gift streak, level map, upgrades, power-ups, music + haptics.
+- **AdMob** rewarded + interstitial (Google *test* ids for now), UMP consent, **IAP layer** (mock until Play Billing is set up).
 
-## Game design (retention loops)
-- **Infinite procedural levels** (seeded, deterministic) with new orb types unlocking over time:
-  Nova (big blast), Armor (2 hits), Split (3 mini-blasts), Freeze (stops time).
-- **Satisfying juice**: pentatonic pitch that climbs with the chain, haptics, screen shake, particles.
-- **Stars (1–3)** → replayability. **Daily Challenge** (same seed for everyone) and **7-day gift streak** → daily return.
-- **Meta progression**: Blast Size / Duration / Coin Bonus upgrades, consumable power-ups (+1 Tap, Mega, Slow-mo).
+## Project layout
+- `www/` – the game (`index.html`, `config.js`). `www/native.js` is built from `src/native.js`.
+- `android/` – Capacitor Android project (AdMob app id lives in `AndroidManifest.xml`).
+- `.github/workflows/android.yml` – builds a debug APK on every push (Actions → artifact `chain-nova-debug-apk`).
 
-## Monetization hooks (in `index.html`: `Ads` and `IAP` objects — currently mocks)
+## Run / build
+```
+npm install
+npm run serve          # play in browser at http://localhost:8000 (ads are mocked on web)
+npm run sync           # bundle native bridge + copy www into android/
+cd android && ./gradlew assembleDebug     # needs JDK 21 + Android SDK
+```
+
+## Going live with real ads (when you have your AdMob ids)
+1. `www/config.js`: set `ADMOB_APP_ID`, `REWARDED_ID`, `INTERSTITIAL_ID`, and `ADS_TEST:false`.
+2. `android/app/src/main/AndroidManifest.xml`: replace the `com.google.android.gms.ads.APPLICATION_ID` value.
+3. Never click your own live ads; use test devices.
+
+## Monetization placements
 | Placement | Type |
 |---|---|
-| "So close!" → +1 tap & keep progress | Rewarded (highest value) |
-| Double coins on win, double daily gift | Rewarded |
+| "So close!" → +1 tap, keep progress | Rewarded |
+| Double coins on win / double daily gift | Rewarded |
 | Out-of-stock power-up → free one | Rewarded |
-| Every 3rd level end | Interstitial (disabled by Remove Ads) |
-| Coin packs ₹49–₹899, Starter Pack ₹99, Remove Ads ₹199 | IAP |
+| Every 3rd finished level (from level 4, 90 s cooldown) | Interstitial (removed by Remove Ads) |
+| Coin packs ₹49–₹899, Starter ₹99, Remove Ads ₹199 | IAP |
 
-## Next steps (when accounts are ready)
-1. Wrap with Capacitor: `npm i @capacitor/core @capacitor/cli @capacitor/android && npx cap init && npx cap add android && npx cap sync`
-2. AdMob: install `@capacitor-community/admob`, implement `Ads.rewarded/interstitial` + add banner-free consent (UMP).
-3. Play Billing: `cordova-plugin-purchase` or RevenueCat, implement `IAP.buy`, restore purchases.
-4. Add analytics (Firebase) to tune level difficulty, ad frequency, and D1/D7 retention.
-5. Store assets (icon from `icon.svg`, screenshots, trailer) and soft-launch in India + Tier-2 markets.
-
-> Revenue to hit ₹10 lakh/month depends on installs & retention (roughly 100k+ DAU with hybrid ad + IAP);
-> this build provides the product and monetization surface — user acquisition is the other half.
+## TODO before Play Store release
+- Create IAP products in Play Console + implement `IAP.buy` (currently grants instantly: `IAP_MOCK`).
+- Release signing keystore, privacy policy URL (required by AdMob/Play), Data-safety form, store listing assets.
+- Add Firebase Analytics to tune ad frequency and difficulty.
