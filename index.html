@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0620">
+<link rel="manifest" href="manifest.json">
+<title>Chain Nova</title>
+<style>
+:root{--bg:#0b0620;--panel:#1a1140;--panel2:#2a1b66;--ink:#f4f0ff;--dim:#9d92d6;--gold:#ffc94a;--pink:#ff4fa3;--cyan:#41e6ff;--green:#5dffb0}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.layer{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column}
+.layer>*{pointer-events:auto}
+.hidden{display:none!important}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+.btn{background:linear-gradient(180deg,var(--pink),#c42a78);padding:14px 26px;border-radius:18px;font-weight:800;font-size:18px;box-shadow:0 5px 0 #7d1650,0 10px 24px #ff4fa355;letter-spacing:.5px}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #7d1650}
+.btn.gold{background:linear-gradient(180deg,#ffd96b,#e69a14);color:#3a2300;box-shadow:0 5px 0 #8a5a00,0 10px 24px #ffc94a44}
+.btn.cyan{background:linear-gradient(180deg,#5eeeff,#1c9ab8);color:#032b36;box-shadow:0 5px 0 #0f5f73}
+.btn.ghost{background:#ffffff14;box-shadow:none;font-weight:700}
+.btn.sm{padding:9px 14px;font-size:14px;border-radius:12px}
+.chip{background:#ffffff14;border-radius:999px;padding:6px 14px;font-weight:800;display:flex;gap:6px;align-items:center;backdrop-filter:blur(6px)}
+#hud{padding:calc(env(safe-area-inset-top) + 10px) 12px 0;flex-direction:row;justify-content:space-between;align-items:flex-start;display:flex;gap:8px}
+#hud .mid{flex:1;text-align:center}
+#bar{height:10px;background:#ffffff1f;border-radius:6px;overflow:hidden;margin-top:6px;position:relative}
+#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));transition:width .25s}
+#bar b{position:absolute;top:-2px;bottom:-2px;width:3px;background:var(--gold);border-radius:2px}
+#pips{font-size:20px;letter-spacing:4px;margin-top:2px;color:var(--gold);min-height:26px}
+#lvl{font-weight:900;font-size:18px}
+#dock{margin-top:auto;display:flex;justify-content:center;gap:12px;padding:0 12px calc(env(safe-area-inset-bottom) + 12px)}
+.pw{width:84px;background:#ffffff14;border-radius:16px;padding:8px 4px;text-align:center;font-size:12px;font-weight:700;position:relative}
+.pw .ic{font-size:26px;display:block}
+.pw em{position:absolute;top:-6px;right:-6px;background:var(--pink);border-radius:999px;min-width:22px;height:22px;font-style:normal;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:900}
+#home{align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 18px)}
+#home .top{display:flex;width:100%;justify-content:space-between}
+#home h1{margin:0;font-size:54px;line-height:.95;text-align:center;font-weight:900;letter-spacing:1px;background:linear-gradient(180deg,#fff,#ff9fd5 45%,#ff4fa3);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 18px #ff4fa388)}
+#home .sub{color:var(--dim);text-align:center;margin-top:8px;font-weight:600}
+#home .mid{text-align:center}
+#home .stack{display:flex;flex-direction:column;gap:12px;align-items:center;width:100%;max-width:340px}
+#home .stack .btn{width:100%}
+.big{font-size:24px!important;padding:18px 26px!important}
+.row{display:flex;gap:10px;width:100%}
+.row .btn{flex:1;padding:12px 8px;font-size:15px}
+#modal{background:#05020fcc;align-items:center;justify-content:center;padding:20px;z-index:5}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:2px solid #ffffff22;border-radius:26px;padding:22px 20px;width:100%;max-width:380px;max-height:88vh;overflow:auto;text-align:center;box-shadow:0 20px 60px #000a;animation:pop .28s cubic-bezier(.2,1.5,.4,1)}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+.card h2{margin:0 0 6px;font-size:28px;font-weight:900}
+.card p{color:var(--dim);margin:6px 0 14px}
+.card .btn{width:100%;margin-top:10px}
+.stars{font-size:46px;letter-spacing:6px;margin:6px 0}
+.stars s{text-decoration:none;opacity:.2;filter:grayscale(1)}
+.stars s.on{opacity:1;filter:none;animation:st .5s both}
+@keyframes st{from{transform:scale(3) rotate(-30deg);opacity:0}}
+.item{display:flex;align-items:center;gap:10px;background:#ffffff10;border-radius:16px;padding:10px 12px;margin:8px 0;text-align:left}
+.item .t{flex:1;font-weight:800}.item .t small{display:block;color:var(--dim);font-weight:600;font-size:12px}
+.item .btn{width:auto;margin:0;padding:8px 12px;font-size:14px;box-shadow:none;border-radius:12px;white-space:nowrap}
+.days{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.day{background:#ffffff10;border-radius:12px;padding:8px 2px;font-size:12px;font-weight:800}
+.day.cur{background:var(--gold);color:#3a2300}.day.done{opacity:.4}
+.sec{font-size:12px;letter-spacing:2px;color:var(--cyan);font-weight:900;text-align:left;margin:14px 0 0}
+#toast{position:fixed;left:50%;top:20%;transform:translateX(-50%);background:#000c;padding:10px 18px;border-radius:14px;font-weight:800;z-index:9;pointer-events:none;opacity:0;transition:opacity .25s}
+#ad{background:#000;z-index:10;align-items:center;justify-content:center;font-weight:800;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="layer hidden" style="position:fixed;inset:0 0 auto 0;pointer-events:none">
+  <div style="pointer-events:auto"><button class="chip" id="bPause">⏸</button></div>
+  <div class="mid">
+    <div id="lvl">Level 1</div>
+    <div id="bar"><i></i><b></b></div>
+    <div id="pips"></div>
+  </div>
+  <div class="chip" id="hCoins">🪙 0</div>
+</div>
+<div id="dockWrap" class="layer hidden" style="inset:auto 0 0 0;pointer-events:none"><div id="dock">
+  <button class="pw" data-pw="tap"><span class="ic">👆</span>+1 Tap<em>0</em></button>
+  <button class="pw" data-pw="mega"><span class="ic">💥</span>Mega<em>0</em></button>
+  <button class="pw" data-pw="slow"><span class="ic">🧊</span>Slow-mo<em>0</em></button>
+</div></div>
+
+<div id="home" class="layer">
+  <div class="top"><div class="chip" id="hmCoins">🪙 0</div><div style="display:flex;gap:8px"><button class="chip" id="bSet">⚙️</button></div></div>
+  <div class="mid"><h1>CHAIN<br>NOVA</h1><div class="sub">One tap. Infinite chains.</div></div>
+  <div class="stack">
+    <button class="btn gold big" id="bPlay">▶ PLAY — Level 1</button>
+    <button class="btn cyan" id="bDaily">🔥 Daily Challenge</button>
+    <div class="row"><button class="btn ghost" id="bShop">🛒 Shop</button><button class="btn ghost" id="bGift">🎁 Daily Gift</button></div>
+    <div class="sub" id="best"></div>
+  </div>
+</div>
+
+<div id="modal" class="layer hidden"></div>
+<div id="ad" class="layer hidden"><div>📺 Ad playing…<br><small style="color:#888">(mock — replace with real AdMob)</small></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ================= CHAIN NOVA =================
+ * One-tap chain reaction puzzle. Tap once, drop a nova, watch orbs chain.
+ * Systems: infinite procedural levels, daily challenge, upgrades, power-ups,
+ * daily gift streak, rewarded/interstitial ad + IAP hooks (mock until real SDK).
+ */
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rnd=(a,b)=>a+Math.random()*(b-a);
+
+/* ---------- save ---------- */
+const SKEY="chainnova.v1";
+const defSave={coins:200,level:1,stars:{},inv:{tap:1,mega:1,slow:1},up:{radius:0,hold:0,coin:0},
+  gift:{last:"",streak:0},daily:"",noAds:false,sound:true,haptic:true,played:0,best:0,starter:false};
+let S=(()=>{try{return Object.assign(structuredClone(defSave),JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){return structuredClone(defSave)}})();
+const save=()=>{try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}};
+const today=()=>new Date().toISOString().slice(0,10);
+
+/* ---------- monetization hooks (swap bodies for AdMob / Play Billing) ---------- */
+const Ads={
+  rewarded(cb){ // cb(true) if user earned reward
+    showAd(()=>cb(true));
+  },
+  interstitial(cb){ if(S.noAds) return cb(); showAd(cb); },
+};
+const IAP={
+  buy(id,cb){ // TODO: Google Play Billing. Mock grants immediately.
+    cb(true);
+  }
+};
+function showAd(done){const a=$("#ad");a.classList.remove("hidden");setTimeout(()=>{a.classList.add("hidden");done()},1200)}
+
+/* ---------- audio ---------- */
+let AC=null;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==="suspended")AC.resume();return AC}
+const PENTA=[0,2,4,7,9];
+function tone(f,dur,type="triangle",vol=.18,slide=0){
+  if(!S.sound)return;const a=ac();if(!a)return;
+  const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=f;
+  if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f*slide),a.currentTime+dur);
+  g.gain.setValueAtTime(vol,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);
+  o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+dur);
+}
+const pop=i=>tone(261.6*Math.pow(2,PENTA[i%5]/12+Math.min(3,Math.floor(i/5))),.35,"triangle",.16);
+const sfx={tap:()=>tone(180,.25,"sine",.3,.4),win:()=>[0,4,7,12].forEach((n,i)=>setTimeout(()=>tone(392*Math.pow(2,n/12),.4,"triangle",.2),i*110)),
+  lose:()=>tone(220,.5,"sawtooth",.15,.4),coin:()=>tone(1200,.12,"square",.08),ui:()=>tone(600,.08,"square",.06)};
+const buzz=ms=>{if(S.haptic&&navigator.vibrate)try{navigator.vibrate(ms)}catch(e){}};
+
+/* ---------- level generation ---------- */
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const TYPES={
+  normal:{r:10,blast:1,hp:1},
+  nova:{r:14,blast:1.7,hp:1},
+  armor:{r:12,blast:1.1,hp:2},
+  split:{r:11,blast:.7,hp:1},
+  freeze:{r:11,blast:1,hp:1},
+};
+function genLevel(n,seed,daily){
+  const R=mulberry(seed||n*7919+13);
+  const count=Math.min(28+Math.floor(n*1.2),84);
+  const spd=22+Math.min(n,60)*.7;
+  const w={normal:10,nova:n>=3?2:0,armor:n>=6?Math.min(1+n/6,5):0,split:n>=10?2:0,freeze:n>=14?1.2:0};
+  const tot=Object.values(w).reduce((a,b)=>a+b,0);
+  const orbs=[];
+  for(let i=0;i<count;i++){
+    let p=R()*tot,t="normal";for(const k in w){if(p<w[k]){t=k;break}p-=w[k]}
+    const a=R()*6.283,v=spd*(.5+R());
+    orbs.push({t,x:R(),y:R(),vx:Math.cos(a)*v,vy:Math.sin(a)*v,hue:Math.floor(R()*360)});
+  }
+  const frac=.2+.42*(1-Math.exp(-n/30));
+  return{n,orbs,goal:Math.max(2,Math.ceil(count*frac)),taps:(n>=5&&n%7===0)?2:1,daily:!!daily};
+}
+const THEMES=[["#1a0b4d","#0b0620"],["#06323f","#030d1a"],["#401040","#12031a"],["#3d1f08","#150a03"],["#0a3d2a","#031510"],["#2a0b3d","#0a0320"]];
+
+/* ---------- canvas / world ---------- */
+const cv=$("#c"),ctx=cv.getContext("2d");
+let W=400,H=700,sc=1,DPR=1;
+function resize(){DPR=Math.min(window.devicePixelRatio||1,2);const w=innerWidth,h=innerHeight;cv.width=w*DPR;cv.height=h*DPR;sc=w/400;W=400;H=h/sc;}
+addEventListener("resize",resize);resize();
+const AR={x:14,y:96,w:372,get h(){return H-96-96}}; // arena rect (logical)
+
+let state="menu",lv=null,orbs=[],blasts=[],parts=[],texts=[],stars=[],shake=0;
+let tapsLeft=0,cleared=0,chain=0,chainMax=0,score=0,megaNext=false,slowT=0,freezeT=0,ended=false,usedContinue=false,earnedRun=0,bid=0;
+let theme=0,tNow=0;
+for(let i=0;i<70;i++)stars.push({x:Math.random()*400,y:Math.random()*1400,s:Math.random()*1.6+.3,p:Math.random()*6});
+
+function spawnOrbs(L,interactive){
+  orbs=L.orbs.map(o=>{const T=TYPES[o.t];return{t:o.t,r:T.r,hp:T.hp,x:AR.x+T.r+o.x*(AR.w-2*T.r),y:AR.y+T.r+o.y*(AR.h-2*T.r),vx:o.vx,vy:o.vy,hue:o.hue,hit:-1,flash:0}});
+}
+function startLevel(L){
+  lv=L;theme=Math.floor((L.n-1)/8)%THEMES.length;
+  blasts=[];parts=[];texts=[];tapsLeft=L.taps;cleared=0;chain=0;chainMax=0;score=0;megaNext=false;slowT=0;freezeT=0;ended=false;usedContinue=false;earnedRun=0;
+  spawnOrbs(L);state="play";
+  $("#home").classList.add("hidden");$("#hud").classList.remove("hidden");$("#dockWrap").classList.remove("hidden");
+  $("#lvl").textContent=L.daily?"🔥 Daily Challenge":"Level "+L.n;
+  $("#bar b").style.left=(L.goal/L.orbs.length*100)+"%";
+  hud();
+}
+function startMenuBG(){state="menu";lv=null;const L=genLevel(12,Math.floor(Math.random()*1e6));spawnOrbs(L);blasts=[];theme=Math.floor(Math.random()*THEMES.length)}
+function hud(){
+  $("#pips").textContent="●".repeat(Math.max(0,tapsLeft))+(megaNext?" 💥":"");
+  $("#bar i").style.width=Math.min(100,cleared/lv.orbs.length*100)+"%";
+  $("#hCoins").textContent="🪙 "+S.coins;
+  document.querySelectorAll(".pw").forEach(b=>b.querySelector("em").textContent=S.inv[b.dataset.pw]||0);
+}
+function baseR(){return 60+S.up.radius*3.5+(lv&&lv.n<=3&&!lv.daily?14:0)}
+function holdT(){return .9+S.up.hold*.12}
+
+function addBlast(x,y,maxR,col,depth){
+  blasts.push({id:++bid,x,y,maxR,t:0,hue:col,depth,r:0});
+}
+function explode(o,byDepth){
+  if(o.dead)return;o.dead=true;cleared++;chain++;chainMax=Math.max(chainMax,chain);
+  const T=TYPES[o.t];let R=(54+(lv&&lv.n<=3&&!lv.daily?10:0))*T.blast*(1+S.up.radius*.06);
+  score+=25*chain;pop(chain-1);buzz(chain>8?20:8);
+  if(o.t==="split"){for(let i=0;i<3;i++){const a=i*2.094+Math.random();addBlast(o.x+Math.cos(a)*16,o.y+Math.sin(a)*16,R*.9,o.hue,byDepth+1)}}
+  else addBlast(o.x,o.y,R,o.hue,byDepth+1);
+  if(o.t==="freeze"){freezeT=2.5;say("❄ FREEZE",o.x,o.y-20,"#8ff")}
+  burst(o.x,o.y,o.hue,14+Math.min(chain,20));
+  shake=Math.min(14,shake+1+chain*.12);
+  if(chain===5||chain===10||chain===15||chain===25||chain===40)say("CHAIN x"+chain+"!",W/2,AR.y+AR.h*.3,"#ffd24a",true);
+  else if(chain>1&&chain%3===0)say("x"+chain,o.x,o.y-16,"#fff");
+  hud();
+}
+function burst(x,y,hue,n){for(let i=0;i<n;i++){const a=rnd(0,6.283),v=rnd(40,190);parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,hue,s:rnd(1.5,3.5)})}}
+function say(t,x,y,c,big){texts.push({t,x,y,c,l:1,big})}
+
+/* ---------- input ---------- */
+cv.addEventListener("pointerdown",e=>{
+  ac();
+  if(state!=="play"||ended||tapsLeft<=0||modalOpen())return;
+  const x=e.clientX/sc,y=e.clientY/sc;
+  if(y<AR.y-30||y>AR.y+AR.h+30)return;
+  tapsLeft--;chain=0;
+  const R=baseR()*(megaNext?1.8:1);megaNext=false;
+  addBlast(clamp(x,AR.x,AR.x+AR.w),clamp(y,AR.y,AR.y+AR.h),R,Math.random()*360,0);
+  sfx.tap();buzz(15);shake=4;hud();
+});
+
+/* ---------- update ---------- */
+function update(dt){
+  tNow+=dt;
+  const sp=(freezeT>0?0:1)*(slowT>0?.3:1);
+  if(freezeT>0)freezeT-=dt;if(slowT>0)slowT-=dt;
+  for(const o of orbs){
+    if(o.dead)continue;
+    o.x+=o.vx*dt*sp;o.y+=o.vy*dt*sp;
+    if(o.x<AR.x+o.r){o.x=AR.x+o.r;o.vx=Math.abs(o.vx)}if(o.x>AR.x+AR.w-o.r){o.x=AR.x+AR.w-o.r;o.vx=-Math.abs(o.vx)}
+    if(o.y<AR.y+o.r){o.y=AR.y+o.r;o.vy=Math.abs(o.vy)}if(o.y>AR.y+AR.h-o.r){o.y=AR.y+AR.h-o.r;o.vy=-Math.abs(o.vy)}
+    if(o.flash>0)o.flash-=dt;
+  }
+  const H1=.42,H2=holdT(),H3=.4;
+  for(const b of blasts){
+    b.t+=dt;
+    if(b.t<H1){const p=b.t/H1;b.r=b.maxR*(1-Math.pow(1-p,3))}
+    else if(b.t<H1+H2)b.r=b.maxR;
+    else if(b.t<H1+H2+H3)b.r=b.maxR*(1-(b.t-H1-H2)/H3);
+    else{b.dead=true;continue}
+    for(const o of orbs){
+      if(o.dead||o.hit===b.id)continue;
+      const dx=o.x-b.x,dy=o.y-b.y,rr=b.r+o.r;
+      if(dx*dx+dy*dy<rr*rr){
+        if(o.hp>1){o.hp--;o.hit=b.id;o.flash=.25;pop(2);burst(o.x,o.y,o.hue,6);say("CRACK",o.x,o.y-14,"#bbb")}
+        else explode(o,b.depth);
+      }
+    }
+  }
+  blasts=blasts.filter(b=>!b.dead);
+  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.l-=dt*1.4}
+  parts=parts.filter(p=>p.l>0);
+  for(const t of texts){t.y-=28*dt;t.l-=dt*(t.big?.7:1.2)}
+  texts=texts.filter(t=>t.l>0);
+  orbs=orbs.filter(o=>!o.dead);
+  shake*=.9;
+  if(state==="play"&&!ended&&blasts.length===0&&(tapsLeft<=0||orbs.length===0)){ended=true;setTimeout(finish,650)}
+}
+
+/* ---------- draw ---------- */
+function draw(){
+  ctx.setTransform(DPR*sc,0,0,DPR*sc,0,0);
+  const th=THEMES[theme],g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,th[0]);g.addColorStop(1,th[1]);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  for(const s of stars){const a=.3+.4*Math.sin(tNow*1.5+s.p);ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.fillRect(s.x,(s.y+tNow*4*s.s)%H,s.s,s.s)}
+  const sx=shake?rnd(-shake,shake):0,sy=shake?rnd(-shake,shake):0;
+  ctx.translate(sx,sy);
+  if(state==="play"){ctx.strokeStyle="#ffffff22";ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(AR.x-4,AR.y-4,AR.w+8,AR.h+8,18);ctx.stroke()}
+  ctx.globalCompositeOperation="lighter";
+  for(const o of orbs){
+    const T=TYPES[o.t];let h=o.hue;
+    const gl=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*2.4);
+    gl.addColorStop(0,`hsla(${h},100%,65%,.55)`);gl.addColorStop(1,`hsla(${h},100%,50%,0)`);
+    ctx.fillStyle=gl;ctx.beginPath();ctx.arc(o.x,o.y,o.r*2.4,0,7);ctx.fill();
+  }
+  ctx.globalCompositeOperation="source-over";
+  for(const o of orbs){
+    const h=o.hue;
+    ctx.fillStyle=o.flash>0?"#fff":`hsl(${h},95%,62%)`;
+    ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill();
+    ctx.fillStyle="#ffffff88";ctx.beginPath();ctx.arc(o.x-o.r*.3,o.y-o.r*.3,o.r*.35,0,7);ctx.fill();
+    ctx.lineWidth=2;
+    if(o.t==="nova"){ctx.strokeStyle="#ffd24a";ctx.beginPath();ctx.arc(o.x,o.y,o.r+3,0,7);ctx.stroke()}
+    else if(o.t==="armor"){ctx.strokeStyle=o.hp>1?"#e8e8f8":"#8886";ctx.lineWidth=o.hp>1?4:2;ctx.beginPath();ctx.arc(o.x,o.y,o.r+2,0,7);ctx.stroke()}
+    else if(o.t==="split"){ctx.fillStyle="#fff";for(let i=0;i<3;i++){const a=i*2.094+tNow*2;ctx.beginPath();ctx.arc(o.x+Math.cos(a)*o.r*.5,o.y+Math.sin(a)*o.r*.5,2,0,7);ctx.fill()}}
+    else if(o.t==="freeze"){ctx.strokeStyle="#bff";ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(o.x,o.y,o.r+3,0,7);ctx.stroke();ctx.setLineDash([])}
+  }
+  ctx.globalCompositeOperation="lighter";
+  for(const b of blasts){
+    if(b.r<=0)continue;
+    const gr=ctx.createRadialGradient(b.x,b.y,b.r*.2,b.x,b.y,b.r);
+    gr.addColorStop(0,`hsla(${b.hue},100%,70%,.05)`);gr.addColorStop(.8,`hsla(${b.hue},100%,60%,.35)`);gr.addColorStop(1,`hsla(${b.hue},100%,75%,.9)`);
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fill();
+  }
+  for(const p of parts){ctx.fillStyle=`hsla(${p.hue},100%,70%,${p.l})`;ctx.beginPath();ctx.arc(p.x,p.y,p.s*p.l,0,7);ctx.fill()}
+  ctx.globalCompositeOperation="source-over";
+  ctx.textAlign="center";
+  for(const t of texts){ctx.globalAlpha=clamp(t.l*1.5,0,1);ctx.fillStyle=t.c;ctx.font=`900 ${t.big?34:16}px system-ui`;ctx.strokeStyle="#000a";ctx.lineWidth=4;ctx.strokeText(t.t,t.x,t.y);ctx.fillText(t.t,t.x,t.y)}
+  ctx.globalAlpha=1;
+  if(freezeT>0||slowT>0){ctx.fillStyle="rgba(120,220,255,.07)";ctx.fillRect(-20,-20,W+40,H+40)}
+  if(state==="play"&&tapsLeft>0&&!ended&&cleared===0&&lv&&lv.n<=2&&!lv.daily){ctx.fillStyle="#fff";ctx.globalAlpha=.6+.4*Math.sin(tNow*5);ctx.font="800 20px system-ui";ctx.fillText("TAP to drop a nova!",W/2,AR.y+AR.h/2);ctx.globalAlpha=1}
+}
+let paused=false;
+let last=performance.now();
+(function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!document.hidden&&!paused)update(dt);draw();requestAnimationFrame(loop)})(last);
+
+/* ---------- flow ---------- */
+
+function toast(t){const e=$("#toast");e.textContent=t;e.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.opacity=0,1600)}
+function addCoins(n){S.coins+=n;save();hud();$("#hmCoins").textContent="🪙 "+S.coins}
+function starsFor(){const t=lv.orbs.length;if(cleared<lv.goal)return 0;let s=1;if(cleared>=lv.goal+(t-lv.goal)*.5)s=2;if(cleared>=t*.9&&s===2)s=3;return s}
+function finish(){
+  if(state!=="play")return;
+  const won=cleared>=lv.goal,st=starsFor();
+  S.played++;S.best=Math.max(S.best,chainMax);
+  if(won){
+    sfx.win();buzz([30,40,60]);
+    earnedRun=Math.round((cleared*2+st*10+(lv.daily?100:0))*(1+S.up.coin*.1));
+    if(lv.daily)S.daily=today();
+    else{S.stars[lv.n]=Math.max(S.stars[lv.n]||0,st);if(lv.n===S.level)S.level++;}
+    addCoins(earnedRun);
+    for(let i=0;i<40;i++)setTimeout(()=>burst(rnd(30,370),rnd(150,400),rnd(0,360),10),i*40);
+    showModal(`<h2>${lv.daily?"Daily Cleared!":"Level "+lv.n+" Clear!"}</h2>
+      <div class="stars">${[1,2,3].map(i=>`<s class="${i<=st?"on":""}" style="animation-delay:${i*.2}s">⭐</s>`).join("")}</div>
+      <p>Cleared <b style="color:#fff">${cleared}/${lv.orbs.length}</b> · Best chain <b style="color:#fff">x${chainMax}</b><br>Score <b style="color:#fff">${score}</b></p>
+      <div style="font-size:26px;font-weight:900;color:var(--gold)">+${earnedRun} 🪙</div>
+      <button class="btn cyan" data-a="x2">📺 Double coins (+${earnedRun})</button>
+      <button class="btn gold" data-a="next">${lv.daily?"Home":"Next Level ▶"}</button>
+      <button class="btn ghost" data-a="home">Home</button>`,{
+      x2(b){Ads.rewarded(ok=>{if(ok){addCoins(earnedRun);sfx.coin();b.disabled=true;b.textContent="Doubled! ✔"}})},
+      next(){closeModal();afterRun(()=>lv.daily?goHome():startLevel(genLevel(S.level)))},
+      home(){closeModal();afterRun(goHome)}});
+  }else{
+    sfx.lose();buzz(80);
+    const need=lv.goal-cleared;
+    showModal(`<h2>So close!</h2><p>Cleared <b style="color:#fff">${cleared}</b> of <b style="color:#fff">${lv.goal}</b> needed<br>(${need} more orbs)</p>
+      ${usedContinue?"":`<button class="btn cyan" data-a="cont">📺 Watch ad: +1 tap, keep progress</button>`}
+      <button class="btn gold" data-a="retry">↻ Retry</button>
+      <button class="btn ghost" data-a="home">Home</button>`,{
+      cont(){Ads.rewarded(ok=>{if(ok){closeModal();usedContinue=true;ended=false;tapsLeft=1;hud()}})},
+      retry(){closeModal();afterRun(()=>startLevel(lv.daily?genLevel(lv.n,lv.seed,true):genLevel(lv.n)))},
+      home(){closeModal();goHome()}});
+  }
+}
+let runsSinceAd=0;
+function afterRun(cb){runsSinceAd++;if(runsSinceAd>=3&&!S.noAds){runsSinceAd=0;Ads.interstitial(cb)}else cb()}
+function goHome(){
+  $("#hud").classList.add("hidden");$("#dockWrap").classList.add("hidden");$("#home").classList.remove("hidden");
+  startMenuBG();refreshHome();
+}
+function refreshHome(){
+  $("#hmCoins").textContent="🪙 "+S.coins;
+  $("#bPlay").textContent="▶ PLAY — Level "+S.level;
+  const d=S.daily===today();$("#bDaily").textContent=d?"✔ Daily done — back tomorrow":"🔥 Daily Challenge (+100 🪙)";
+  $("#best").textContent="Best chain: x"+S.best+"  ·  ⭐ "+Object.values(S.stars).reduce((a,b)=>a+b,0);
+  $("#bGift").textContent=giftReady()?"🎁 Gift ready!":"🎁 Daily Gift";
+}
+
+/* ---------- modal ---------- */
+const modal=$("#modal");let handlers={};
+function modalOpen(){return !modal.classList.contains("hidden")}
+function showModal(html,h){modal.innerHTML=`<div class="card">${html}</div>`;handlers=h||{};modal.classList.remove("hidden");paused=true}
+function closeModal(){modal.classList.add("hidden");paused=false}
+modal.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;sfx.ui();const f=handlers[b.dataset.a];f&&f(b,b.dataset)});
+
+/* ---------- gift ---------- */
+const GIFTS=[{c:50},{c:100},{i:"tap"},{c:150},{i:"mega"},{c:250},{c:500,i:"slow"}];
+function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/864e5)}
+function giftReady(){return S.gift.last!==today()}
+function giftDay(){const g=S.gift;if(!g.last)return 0;const d=daysBetween(g.last,today());return d===1?g.streak%7:d===0?(g.streak-1)%7:0}
+function openGift(){
+  const ready=giftReady(),cur=ready?giftDay():-1,gl=GIFTS.map((g,i)=>{const l=(g.c?g.c+"🪙":"")+(g.i?{tap:"👆",mega:"💥",slow:"🧊"}[g.i]:"");
+    return`<div class="day ${i===cur?"cur":""} ${(ready?i<cur:i<=(S.gift.streak-1)%7)?"done":""}">Day ${i+1}<br>${l}</div>`}).join("");
+  showModal(`<h2>🎁 Daily Gift</h2><p>Come back every day — the streak rewards grow!</p><div class="days">${gl}</div>
+    ${ready?`<button class="btn gold" data-a="claim">Claim</button><button class="btn cyan" data-a="claim2">📺 Claim x2</button>`:`<p>Already claimed today ✔</p>`}
+    <button class="btn ghost" data-a="close">Close</button>`,{
+    claim(){claimGift(1)},claim2(){Ads.rewarded(ok=>ok&&claimGift(2))},close(){closeModal()}});
+}
+function claimGift(m){
+  const d=giftDay(),g=GIFTS[d];if(g.c)addCoins(g.c*m);if(g.i)S.inv[g.i]=(S.inv[g.i]||0)+m;
+  S.gift.streak=(S.gift.last&&daysBetween(S.gift.last,today())===1?S.gift.streak:0)+1;S.gift.last=today();save();sfx.coin();closeModal();toast("Gift claimed!");refreshHome();
+}
+
+/* ---------- shop ---------- */
+const UPS={radius:{n:"Blast Size",d:"Bigger novas, bigger chains",ic:"🔵"},hold:{n:"Blast Duration",d:"Novas linger longer",ic:"⏱"},coin:{n:"Coin Bonus",d:"+10% coins per level",ic:"🪙"}};
+const PW={tap:{n:"+1 Tap",p:150,ic:"👆"},mega:{n:"Mega Blast",p:120,ic:"💥"},slow:{n:"Slow-mo",p:100,ic:"🧊"}};
+const upCost=(k)=>Math.round(120*Math.pow(1.55,S.up[k]));
+function openShop(){
+  let h=`<h2>🛒 Shop</h2><div class="chip" style="justify-content:center;margin-bottom:6px">🪙 ${S.coins}</div>`;
+  h+=`<div class="sec">UPGRADES</div>`;
+  for(const k in UPS){const lv=S.up[k],mx=lv>=10;h+=`<div class="item"><span style="font-size:26px">${UPS[k].ic}</span><div class="t">${UPS[k].n} <small>Lv ${lv}/10 · ${UPS[k].d}</small></div>${mx?"MAX":`<button class="btn gold" data-a="up" data-k="${k}">${upCost(k)} 🪙</button>`}</div>`}
+  h+=`<div class="sec">POWER-UPS</div>`;
+  for(const k in PW){h+=`<div class="item"><span style="font-size:26px">${PW[k].ic}</span><div class="t">${PW[k].n} <small>Owned: ${S.inv[k]||0}</small></div><button class="btn gold" data-a="pw" data-k="${k}">${PW[k].p} 🪙</button><button class="btn cyan" data-a="pwad" data-k="${k}">📺</button></div>`}
+  h+=`<div class="sec">COINS & OFFERS</div>`;
+  const packs=[["500 🪙","₹49",500],["1,500 🪙","₹129",1500],["5,000 🪙","₹349",5000],["15,000 🪙","₹899",15000]];
+  packs.forEach((p,i)=>h+=`<div class="item"><span style="font-size:26px">💰</span><div class="t">${p[0]}</div><button class="btn cyan" data-a="pack" data-i="${i}">${p[1]}</button></div>`);
+  if(!S.starter)h+=`<div class="item" style="background:#ffc94a22"><span style="font-size:26px">🚀</span><div class="t">Starter Pack <small>2,000🪙 + 5 of each power-up</small></div><button class="btn gold" data-a="starter">₹99</button></div>`;
+  if(!S.noAds)h+=`<div class="item"><span style="font-size:26px">🚫</span><div class="t">Remove Ads <small>No interstitials (rewarded stay optional)</small></div><button class="btn cyan" data-a="noads">₹199</button></div>`;
+  h+=`<button class="btn ghost" data-a="close">Close</button>`;
+  showModal(h,{
+    up(b,d){const k=d.k,c=upCost(k);if(S.coins<c)return toast("Not enough coins");S.coins-=c;S.up[k]++;save();sfx.coin();openShop();refreshHome()},
+    pw(b,d){const p=PW[d.k].p;if(S.coins<p)return toast("Not enough coins");S.coins-=p;S.inv[d.k]++;save();sfx.coin();openShop();refreshHome()},
+    pwad(b,d){Ads.rewarded(ok=>{if(ok){S.inv[d.k]++;save();openShop()}})},
+    pack(b,d){IAP.buy("coins"+d.i,ok=>{if(ok){S.coins+=packs[d.i][2];save();sfx.coin();openShop();refreshHome()}})},
+    starter(){IAP.buy("starter",ok=>{if(ok){S.starter=true;S.coins+=2000;for(const k in PW)S.inv[k]+=5;save();openShop();refreshHome()}})},
+    noads(){IAP.buy("noads",ok=>{if(ok){S.noAds=true;save();openShop()}})},
+    close(){closeModal();if(state==="play"){paused=false;hud()}}});
+}
+function openSettings(){
+  showModal(`<h2>⚙️ Settings</h2>
+   <div class="item"><div class="t">Sound</div><button class="btn cyan" data-a="snd">${S.sound?"ON":"OFF"}</button></div>
+   <div class="item"><div class="t">Vibration</div><button class="btn cyan" data-a="hap">${S.haptic?"ON":"OFF"}</button></div>
+   <div class="item"><div class="t">Reset progress</div><button class="btn ghost" data-a="reset">Reset</button></div>
+   <button class="btn ghost" data-a="close">Close</button>`,{
+   snd(){S.sound=!S.sound;save();openSettings()},hap(){S.haptic=!S.haptic;save();openSettings()},
+   reset(){if(confirm("Erase all progress?")){localStorage.removeItem(SKEY);location.reload()}},close(){closeModal()}});
+}
+
+/* ---------- in game buttons ---------- */
+document.querySelectorAll(".pw").forEach(b=>b.addEventListener("click",()=>{
+  if(state!=="play"||ended||modalOpen())return;
+  const k=b.dataset.pw;
+  if(!(S.inv[k]>0)){
+    // out of stock: offer rewarded ad
+    paused=true;
+    showModal(`<h2>${PW[k].ic} ${PW[k].n}</h2><p>Out of stock!</p>
+      <button class="btn cyan" data-a="ad">📺 Watch ad for a free one</button>
+      <button class="btn gold" data-a="buy">Buy for ${PW[k].p} 🪙</button>
+      <button class="btn ghost" data-a="close">Cancel</button>`,{
+      ad(){Ads.rewarded(ok=>{if(ok){S.inv[k]=1;save();closeModal();hud();usePw(k)}})},
+      buy(){if(S.coins<PW[k].p)return toast("Not enough coins");S.coins-=PW[k].p;S.inv[k]=1;save();closeModal();hud();usePw(k)},
+      close(){closeModal()}});
+    return;
+  }
+  usePw(k);
+}));
+function usePw(k){
+  if(!(S.inv[k]>0))return;
+  if(k==="tap"){tapsLeft++;ended=false}
+  else if(k==="mega"){if(megaNext)return;megaNext=true}
+  else if(k==="slow"){slowT=6}
+  S.inv[k]--;save();sfx.coin();hud();
+}
+$("#bPause").onclick=()=>{if(state!=="play"||ended)return;showModal(`<h2>Paused</h2>
+  <button class="btn gold" data-a="res">Resume</button><button class="btn cyan" data-a="shop">🛒 Shop</button>
+  <button class="btn ghost" data-a="re">↻ Restart</button><button class="btn ghost" data-a="home">Home</button>`,{
+  res(){closeModal()},shop(){openShop()},re(){closeModal();startLevel(lv.daily?genLevel(lv.n,lv.seed,true):genLevel(lv.n))},home(){closeModal();goHome()}})};
+$("#hCoins").onclick=()=>{if(state==="play"&&!modalOpen())openShop()};
+
+/* ---------- home buttons ---------- */
+$("#bPlay").onclick=()=>{ac();sfx.ui();startLevel(genLevel(S.level))};
+$("#bDaily").onclick=()=>{ac();if(S.daily===today())return toast("Come back tomorrow!");
+  const seed=parseInt(today().replace(/-/g,""));const L=genLevel(14+(seed%20),seed,true);L.seed=seed;startLevel(L)};
+$("#bShop").onclick=openShop;$("#bGift").onclick=openGift;$("#bSet").onclick=openSettings;
+
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+window.__game={get S(){return S},get state(){return state},get orbs(){return orbs},tap:(x,y)=>cv.dispatchEvent(new PointerEvent("pointerdown",{clientX:x*sc,clientY:y*sc}))};
+startMenuBG();refreshHome();
+if(giftReady()&&S.played===0)setTimeout(()=>{},0);
+</script>
+</body>
+</html>
